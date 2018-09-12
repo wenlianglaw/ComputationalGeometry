@@ -65,9 +65,10 @@ private:
 
 	/*
 	Description:
-		Find lowest pt
-		Order the pt P by angle P-lowest-Xaxis
-		Make sure the angle formed by points Next-to-top(s), top(s) and pt[i] make nonleft turn
+		Find the Convex Hull using Graham Scan method:
+			Find lowest pt
+			Order the pt P by angle P-lowest-Xaxis
+			Make sure the angle formed by points Next-to-top(s), top(s) and pt[i] make nonleft turn
 	Return:
 		ConvexHull Pts Coordinate
 	*/
