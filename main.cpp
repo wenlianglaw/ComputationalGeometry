@@ -93,7 +93,7 @@ private:
 			else {
 				double dis1 = (p1.first - lowest.first) * (p1.first - lowest.first) + (p1.second - lowest.second)*(p1.second - lowest.second),
 					dis2 = (p2.first - lowest.first) * (p2.first - lowest.first) + (p2.second - lowest.second)*(p2.second - lowest.second);
-				if (dis1 > dis2) return true;
+				if (dis1 < dis2) return true;
 				else return false;
 			}
 		});
