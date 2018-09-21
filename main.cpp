@@ -11,7 +11,8 @@ using namespace cimg_library;
 
 const unsigned char white[]{ 255,255,255 };
 
-typedef pair<int,int> Point;
+// <x,y>
+typedef pair<int, int> Point;
 typedef pair<Point, Point> Line;
 
 class ComputationalGeo {
@@ -25,9 +26,9 @@ public:
 private:
 	mt19937 mt;
 public:
-	ComputationalGeo():img(cimg_library::CImg<unsigned char>(800,800, 1, 1, 0)), width(img._width), height(img._height){
+	ComputationalGeo() :img(cimg_library::CImg<unsigned char>(800, 800, 1, 1, 0)), width(img._width), height(img._height) {
 		random_device rd;
-		 mt = mt19937(rd());
+		mt = mt19937(rd());
 	}
 
 	void run() {
@@ -38,19 +39,20 @@ public:
 
 private:
 	void runConvexHull() {
-		disp = CImgDisplay(img,"Convex Hull");
+		disp = CImgDisplay(img, "Convex Hull");
 		while (!disp.is_closed()) {
 			disp.wait();
 			if (disp.button() & 1) {
 				img.fill(0);
 				// Gen pts
-				auto pts = genNPoints(25);
+				auto pts = genNPoints(35);
 
 				// draw pts
 				drawPoints(pts);
 
 				// Get Convex Hull pts
-				auto convexHullPts = GrahamScan(pts);
+				// auto convexHullPts = GrahamScan(pts);
+				auto convexHullPts = Jarvis(pts);
 
 				// Draw Convex Hull
 				for (int j = 0; j < convexHullPts.size() - 1; j++)
@@ -65,17 +67,16 @@ private:
 
 	/*
 	Description:
-		Find the Convex Hull using Graham Scan method:
-			Find lowest pt
-			Order the pt P by angle P-lowest-Xaxis
-			Make sure the angle formed by points Next-to-top(s), top(s) and pt[i] make nonleft turn
+	Find the Convex Hull using Graham Scan method:
+	Find lowest pt
+	Order the pt P by angle P-lowest-Xaxis
+	Make sure the angle formed by points Next-to-top(s), top(s) and pt[i] make nonleft turn
 	Return:
-		ConvexHull Pts Coordinate
+	ConvexHull Pts Coordinate
 	*/
 	vector<Point> GrahamScan(vector<Point> pts) {
 		_ASSERT(pts.size() >= 3);
-		
-		vector<Point> ret;
+		vector<Point> cvxHull;
 
 		/* Find lowest pt */
 		Point lowest = pts[0];
@@ -97,7 +98,7 @@ private:
 				else return false;
 			}
 		});
-		
+
 		/*Make sure the angle formed by points Next-to-top(s), top(s) and pt[i] make nonleft turn.*/
 		vector<int> s({ 0,1,2 });
 		for (int i = 3; i < pts.size(); i++) {
@@ -108,14 +109,78 @@ private:
 
 		/* Return result */
 		for (int i : s)
-			ret.push_back(pts[i]);
+			cvxHull.push_back(pts[i]);
 
-		return ret;
+		return cvxHull;
 	}
 
-	
+	vector<Point> Jarvis(vector<Point> pts) {
+		_ASSERT(pts.size() >= 3);
+		vector<Point> cvxHull;
+
+		/* Find lowest pt */
+		Point lowest(pts[0]), highest(pts[0]);
+		for (auto pt : pts) {
+			lowest = lowest.second < pt.second ? lowest : pt;
+			highest = highest.second > pt.second ? highest : pt;
+		}
+
+		sort(pts.begin(), pts.end(), [](Point a, Point b) {return a.first < b.first; });
+		auto lowestIt = lower_bound(pts.begin(), pts.end(), lowest, [](Point a, Point b) {
+			if (a.first < b.first) return true;
+			else if (a.first > b.first) return false;
+			else return a.second < b.second;
+		});
+
+		// return pts.end() if not found.    
+		auto findNextCvxHullPt = [this, &pts, &lowestIt](vector<Point>::const_iterator p, bool left) {
+			//If lowestIt is the leftmost or rightmost, this method will not be called with the corresponding "left".
+			vector<Point>::const_iterator nextPt = pts.begin();
+			if (nextPt == p) nextPt++;
+			bool found = false;
+			if (left) {
+				for (auto it = pts.begin(); it != pts.end(); it++) {
+					int cmp = clockWise(*p, *it, *nextPt);
+					if (cmp < 0 || (cmp == 0 && distance(*nextPt, *p) < distance(*it, *p))) nextPt = it;
+				}
+			}
+			else {
+				for (auto it = pts.begin(); it != pts.end(); it++) {
+					int cmp = clockWise(*p, *it, *nextPt);
+					if (cmp > 0 || (cmp == 0 && distance(*nextPt, *p) < distance(*it, *p))) nextPt = it;
+				}
+			}
+			if (nextPt == p) nextPt = pts.end();
+			return nextPt;
+		};
+
+		cvxHull.push_back(lowest);
+		// right
+		auto nextPt = findNextCvxHullPt(lowestIt, false);
+		while (nextPt->second != highest.second) {
+			cvxHull.push_back(*nextPt);
+			nextPt = findNextCvxHullPt(nextPt, false);
+		}
+		cvxHull.push_back(highest);
+
+		// left
+		vector<Point> left;
+		nextPt = findNextCvxHullPt(lowestIt, true);
+		while (nextPt->second != highest.second) {
+			left.push_back(*nextPt);
+			nextPt = findNextCvxHullPt(nextPt, true);
+		}
+
+		// combine
+		for (auto it = left.rbegin(); it != left.rend(); it++) {
+			cvxHull.push_back(*it);
+		}
+
+		return cvxHull;
+	}
+
 	void runIntersect() {
-		disp= CImgDisplay(img, "Intersect");
+		disp = CImgDisplay(img, "Intersect");
 
 		while (!disp.is_closed()) {
 			disp.wait();
@@ -142,7 +207,7 @@ private:
 
 		while (!disp.is_closed()) {
 			disp.wait();
-			if (disp.button()&1) {
+			if (disp.button() & 1) {
 				img.fill(0);
 				auto pts = genNPoints(15);
 				auto lines = linkMLines(pts, 5);
@@ -152,14 +217,14 @@ private:
 				// positive: open  neg: close
 				vector<pair<Point, int>> linePts;
 
-				for (int i = 0; i < lines.size();i++) {
+				for (int i = 0; i < lines.size(); i++) {
 					linePts.push_back({ lines[i].first, i });
 					linePts.push_back({ lines[i].second, -i });
 				}
 
 				sort(linePts.begin(), linePts.end(), [](auto x, auto y) {return x.first.first < y.first.first; });
 				int sweep = 0;
-				while(!disp.is_closed()) {
+				while (!disp.is_closed()) {
 					disp.wait();
 					if (disp.button() & 2) {
 						while (sweep < linePts.size()) {
@@ -194,13 +259,13 @@ private:
 			while (pt1 == pt2) pt1 = mt() % pts.size(), pt2 = mt() % pts.size();
 			if (s.find({ pt1,pt2 }) == s.end() && s.find({ pt2,pt1 }) == s.end()) {
 				s.insert({ pt1, pt2 });
-				if(pts[pt1].first < pts[pt2].first) lines.push_back({ pts[pt1], pts[pt2] });
+				if (pts[pt1].first < pts[pt2].first) lines.push_back({ pts[pt1], pts[pt2] });
 				else lines.push_back({ pts[pt2],pts[pt1] });
 			}
 		}
 
 		// draw lines
-		for (auto l : lines) 
+		for (auto l : lines)
 			drawLine(l.first, l.second);
 
 		return lines;
@@ -244,8 +309,8 @@ private:
 	/*
 	1 : clockwise
 	0 : same dir
-
 	-1 : counter clockwise
+	01 02
 	*/
 	int clockWise(int x1, int y1, int x2, int y2) {
 		int v = x1 * y2 - x2 * y1;
@@ -256,6 +321,9 @@ private:
 
 	/*
 	01, 02
+	1 : clockwise
+	0 : same dir
+	-1 : counter clockwise
 	*/
 	int clockWise(int x0, int y0, int x1, int y1, int x2, int y2) {
 		return clockWise(x1 - x0, y1 - y0, x2 - x0, y2 - y0);
@@ -263,6 +331,9 @@ private:
 
 	/*
 	p1p2 p1p3
+	1 : clockwise
+	0 : same dir
+	-1 : counter clockwise
 	*/
 	int clockWise(pair<int, int> p1, pair<int, int> p2, pair<int, int> p3) {
 		return clockWise(p1.first, p1.second, p2.first, p2.second, p3.first, p3.second);
@@ -282,6 +353,9 @@ private:
 			&& std::min(p1.second, p2.second) <= x.second && x.second <= std::max(p1.second, p2.second);
 	}
 
+	double distance(const Point &a, const Point &b) {
+		return std::sqrt((a.first - b.first) * (a.first - b.first) + (a.second - b.second)*(a.second - b.second));
+	}
 	/*
 	p1p2 and p3p4 intersect->	p1p2 cross the line (not segment) of p3p4, and p3p4 cross the line of p1p2
 	-> (vector p1p3 to p1p4) and (vector p2p3 to p2p4) are opposite turn, ie, one is clockwise and the other is counter-clockwise.
